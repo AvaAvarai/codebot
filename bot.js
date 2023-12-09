@@ -75,31 +75,48 @@ app.listen(PORT, () => {
     console.log(`Express server is running on port ${PORT}`);
 });
 
-function authorize(credentials, discordClient, callback, tokenPath, oAuth2Client, forceNewToken = false) {
-    if (forceNewToken) {
-        // Always get a new token if forced to do so
-        getNewToken(oAuth2Client, discordClient, callback, tokenPath);
-    } else {
-        fs.readFile(tokenPath, (err, token) => {
-            if (err) {
-                // If there's an error reading the token, get a new one
-                getNewToken(oAuth2Client, discordClient, callback, tokenPath);
+function authorize(credentials, discordClient, callback, tokenPath, oAuth2Client) {
+    fs.readFile(tokenPath, (err, token) => {
+        if (err) {
+            getNewToken(oAuth2Client, discordClient, callback, tokenPath);
+        } else {
+            const tokens = JSON.parse(token);
+            if (tokens.refresh_token) {
+                oAuth2Client.setCredentials(tokens);
+                if (tokens.expiry_date <= Date.now()) {
+                    refreshAccessToken(oAuth2Client, tokenPath); // Refresh token if expired
+                }
             } else {
-                // If the token exists, proceed to set credentials and callback
-                oAuth2Client.setCredentials(JSON.parse(token));
-                callback(oAuth2Client, discordClient);
+                getNewToken(oAuth2Client, discordClient, callback, tokenPath);
             }
+            callback(oAuth2Client, discordClient);
+        }
+    });
+}
+
+function refreshAccessToken(oAuth2Client, tokenPath) {
+    oAuth2Client.refreshAccessToken((err, tokens) => {
+        if (err) {
+            console.error('Error refreshing access token', err);
+            return;
+        }
+        oAuth2Client.setCredentials(tokens);
+        tokens.expiry_date = Date.now() + (tokens.expires_in * 1000); // Calculate new expiry date
+        fs.writeFile(tokenPath, JSON.stringify(tokens), (err) => {
+            if (err) console.error('Error writing refreshed token', err);
+            else console.log('Refreshed token stored to', tokenPath);
         });
-    }
+    });
 }
 
 function getNewToken(oAuth2Client, discordClient, callback, tokenPath) {
     const authUrl = oAuth2Client.generateAuthUrl({
-        access_type: 'offline',
+        access_type: 'offline', // Request offline access
         scope: SCOPES,
+        prompt: 'consent' // Force the consent screen to get a refresh token
     });
     console.log('Authorize this app by visiting this url:', authUrl);
-
+    
     const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
@@ -197,6 +214,11 @@ client.once('ready', () => {
     authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH1, oAuth2Client1);
     authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH2, oAuth2Client2);
 });
+
+setInterval(() => {
+    authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH1, oAuth2Client1);
+    authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH2, oAuth2Client2);
+}, 1000 * 60 * 60);
 
 client.on('messageCreate', message => {
     if (message.content.startsWith('!dcp')) {
