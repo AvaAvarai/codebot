@@ -10,6 +10,7 @@ const {
 const readline = require('readline');
 const express = require('express');
 const app = express();
+const schedule = require('node-schedule');
 
 const client = new Client({
     intents: [
@@ -213,18 +214,20 @@ client.once('ready', () => {
     console.log('Bot is online and ready!');
     authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH1, oAuth2Client1);
     authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH2, oAuth2Client2);
-});
 
-setInterval(() => {
-    authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH1, oAuth2Client1);
-    authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH2, oAuth2Client2);
-}, 1000 * 60 * 60);
+    // Schedule the cache refresh every morning at 8:35 AM
+    schedule.scheduleJob('35 8 * * *', function() {
+        console.log('Running scheduled cache update at 8:35 AM');
+        authorize(credenstials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH1, oAuth2Client1);
+        authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH2, oAuth2Client2);
+    });
+});
 
 client.on('messageCreate', message => {
     if (message.content.startsWith('!dcp')) {
         const args = message.content.split(' ');
         if (args.length === 1) {
-            message.channel.send('Please specify a command: list or a problem number');
+            message.channel.send('Please specify a command: list, update, help, or a problem number');
         } else if (args[1] === 'list') {
             const MAX_CHARS = 2000;
             let responseLines = Object.keys(dailyProblems).map(key => `${key}: ${dailyProblems[key].subject}`);
@@ -242,6 +245,22 @@ client.on('messageCreate', message => {
             if (messageChunk.length > 0) {
                 message.channel.send(messageChunk);
             }
+        } else if (args[1] === 'update') {
+            // Trigger cache update for both OAuth2 clients
+            authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH1, oAuth2Client1);
+            authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH2, oAuth2Client2);
+
+            // Notify the user that the cache update has been initiated
+            message.channel.send('Updating cache with the latest emails. This may take a few moments.');
+        } else if (args[1] === 'help') {
+            // Send a help message describing the commands
+            message.channel.send(
+                'Daily Coding Problem Bot Commands:\n' +
+                '`!dcp list`: Lists all available coding problems.\n' +
+                '`!dcp <number>`: Displays the specific coding problem by number.\n' +
+                '`!dcp update`: Manually updates the cache with the latest problems.\n' +
+                'Daily Update: The bot automatically updates the cache every morning at 8:35 AM.'
+            );
         } else {
             const problemNumber = args[1];
             if (dailyProblems[problemNumber]) {
@@ -270,5 +289,6 @@ client.on('messageCreate', message => {
         }
     }
 });
+
 
 client.login(process.env.DISCORD_BOT_TOKEN);
