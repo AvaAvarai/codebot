@@ -20,15 +20,13 @@ const client = new Client({
     ]
 });
 
-// Load client secrets from a local file.
-const credentials = require('./credentials.json'); // Directly import the JSON file
+const credentials = require('./credentials.json');
 const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 const TOKEN_PATH1 = 'token1.json';
 const TOKEN_PATH2 = 'token2.json';
 
-const PORT = 3000; // Or any other port you prefer
+const PORT = 3000;
 
-// OAuth2 client setup
 const {
     client_secret,
     client_id,
@@ -102,7 +100,7 @@ function refreshAccessToken(oAuth2Client, tokenPath) {
             return;
         }
         oAuth2Client.setCredentials(tokens);
-        tokens.expiry_date = Date.now() + (tokens.expires_in * 1000); // Calculate new expiry date
+        tokens.expiry_date = Date.now() + (tokens.expires_in * 1000);
         fs.writeFile(tokenPath, JSON.stringify(tokens), (err) => {
             if (err) console.error('Error writing refreshed token', err);
             else console.log('Refreshed token stored to', tokenPath);
@@ -112,9 +110,9 @@ function refreshAccessToken(oAuth2Client, tokenPath) {
 
 function getNewToken(oAuth2Client, discordClient, callback, tokenPath) {
     const authUrl = oAuth2Client.generateAuthUrl({
-        access_type: 'offline', // Request offline access
+        access_type: 'offline',
         scope: SCOPES,
-        prompt: 'consent' // Force the consent screen to get a refresh token
+        prompt: 'consent'
     });
     console.log('Authorize this app by visiting this url:', authUrl);
     
@@ -177,7 +175,6 @@ function checkEmails(auth, discordClient, storeOnly = false) {
                                 body = Buffer.from(res.data.payload.body.data, 'base64').toString('utf-8');
                             }
 
-                            // Remove the specific line from the email body
                             const lineToRemove = "Good morning! Here's your coding interview problem for today.";
                             body = body.replace(lineToRemove, '').trim();
 
@@ -215,7 +212,6 @@ client.once('ready', () => {
     authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH1, oAuth2Client1);
     authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH2, oAuth2Client2);
 
-    // Schedule the cache refresh every morning at 8:35 AM
     schedule.scheduleJob('35 8 * * *', function() {
         console.log('Running scheduled cache update at 8:35 AM');
         authorize(credenstials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH1, oAuth2Client1);
@@ -246,14 +242,11 @@ client.on('messageCreate', message => {
                 message.channel.send(messageChunk);
             }
         } else if (args[1] === 'update') {
-            // Trigger cache update for both OAuth2 clients
             authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH1, oAuth2Client1);
             authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH2, oAuth2Client2);
 
-            // Notify the user that the cache update has been initiated
             message.channel.send('Updating cache with the latest emails. This may take a few moments.');
         } else if (args[1] === 'help') {
-            // Send a help message describing the commands
             message.channel.send(
                 'Daily Coding Problem Bot Commands:\n' +
                 '`!dcp list`: Lists all available coding problems.\n' +
@@ -267,7 +260,6 @@ client.on('messageCreate', message => {
                 const problem = dailyProblems[problemNumber];
                 message.channel.send(`${problem.subject}\n\n${problem.body}\n`);
             } else {
-                // Send a short message if the problem number is invalid
                 message.channel.send(`Problem number ${problemNumber} is invalid or not available, get available problems with \`!dcp list\`.`);
                 const MAX_CHARS = 2000;
                 let responseLines = Object.keys(dailyProblems).map(key => `${key}: ${dailyProblems[key].subject}`);
@@ -289,6 +281,5 @@ client.on('messageCreate', message => {
         }
     }
 });
-
 
 client.login(process.env.DISCORD_BOT_TOKEN);
