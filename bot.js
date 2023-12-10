@@ -214,7 +214,7 @@ client.once('ready', () => {
 
     schedule.scheduleJob('35 8 * * *', function() {
         console.log('Running scheduled cache update at 8:35 AM');
-        authorize(credenstials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH1, oAuth2Client1);
+        authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH1, oAuth2Client1);
         authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH2, oAuth2Client2);
     });
 });
