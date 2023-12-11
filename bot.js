@@ -2,7 +2,8 @@ require('dotenv').config();
 const fs = require('fs');
 const {
     Client,
-    GatewayIntentBits
+    GatewayIntentBits,
+    ActivityType
 } = require('discord.js');
 const {
     google
@@ -16,7 +17,8 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers,
     ]
 });
 
@@ -207,10 +209,18 @@ function checkEmails(auth, discordClient, storeOnly = false) {
     });
 }
 
-client.once('ready', () => {
+client.once('ready', async () => {
     console.log('Bot is online and ready!');
     authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH1, oAuth2Client1);
     authorize(credentials, client, (auth) => checkEmails(auth, client, true), TOKEN_PATH2, oAuth2Client2);
+
+    client.user.setPresence({ 
+        activities: [{ 
+            name: 'Type ?help for usage!', 
+            type: ActivityType.Playing
+        }], 
+        status: 'online' 
+    });
 
     schedule.scheduleJob('35 8 * * *', function() {
         console.log('Running scheduled cache update at 8:35 AM');
@@ -220,8 +230,8 @@ client.once('ready', () => {
 });
 
 client.on('messageCreate', message => {
-    if (message.content.startsWith('!dcp')) {
-        const args = message.content.split(' ');
+    if (message.content.startsWith('?')) {
+        const args = message.content.split('?');
         if (args.length === 1) {
             message.channel.send('Please specify a command: list, update, help, or a problem number');
         } else if (args[1] === 'list') {
@@ -249,9 +259,9 @@ client.on('messageCreate', message => {
         } else if (args[1] === 'help') {
             message.channel.send(
                 'Daily Coding Problem Bot Commands:\n' +
-                '`!dcp list`: Lists all available coding problems.\n' +
-                '`!dcp <number>`: Displays the specific coding problem by number.\n' +
-                '`!dcp update`: Manually updates the cache with the latest problems.\n' +
+                '`?list`: Lists all available coding problems.\n' +
+                '`?<number>`: Displays the specific coding problem by number.\n' +
+                '`?update`: Manually updates the cache with the latest problems.\n' +
                 'Daily Update: The bot automatically updates the cache every morning at 8:35 AM.'
             );
         } else {
